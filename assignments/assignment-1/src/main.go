@@ -86,6 +86,7 @@ func (cluster *Cluster) newProcess() *Process {
 		cluster.Coordinator = coordinator
 		fmt.Printf("\nProcess PID: %d / Is the Coordinator", id)
 	}
+	process.Start()
 	return process
 }
 
@@ -267,16 +268,11 @@ func main() {
 
 	system := newCluster()
 
-	system.newProcess()
-	system.newProcess()
-	system.newProcess()
-
 	system.Start()
 
-	// Inicia todos os processos
-	for _, p := range system.Processes {
-		p.Start()
-	}
+	system.newProcess()
+	system.newProcess()
+	system.newProcess()
 
 	// Executa por 5 minutos para demonstração
 	time.Sleep(5 * time.Minute)
