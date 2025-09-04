@@ -37,15 +37,17 @@ type AdjustmentReply struct {
 }
 
 type BerkeleyServer struct {
-	mu        sync.Mutex
-	clients   map[int64]string // clientID: port
-	timeDiffs map[int64]time.Duration
+	mu         sync.Mutex
+	clients    map[int64]string // clientID: port
+	timeDiffs  map[int64]time.Duration
+	serverTime time.Time
 }
 
 func NewBerkeleyServer() *BerkeleyServer {
 	return &BerkeleyServer{
-		clients:   make(map[int64]string),
-		timeDiffs: make(map[int64]time.Duration),
+		clients:    make(map[int64]string),
+		timeDiffs:  make(map[int64]time.Duration),
+		serverTime: time.Now(),
 	}
 }
 
@@ -71,8 +73,8 @@ func (bs *BerkeleyServer) ReportTime(args *TimeInfoArgs, reply *TimeInfoReply) e
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 
-	serverTime := time.Now()
-	diff := serverTime.Sub(args.ClientTime)
+	serverTime := bs.serverTime
+	diff := args.ClientTime.Sub(serverTime)
 	bs.timeDiffs[args.ClientID] = diff
 
 	fmt.Printf("Client %d - Diff: %v\n", args.ClientID, diff)
@@ -146,10 +148,7 @@ func (bs *BerkeleyServer) runBerkeleyAlgorithm() {
 		var sum time.Duration
 		count := 0
 
-		for id, diff := range timeDiffs {
-			if id == 0 { // server
-				continue
-			}
+		for _, diff := range timeDiffs {
 			sum += diff
 			count++
 		}
@@ -160,15 +159,17 @@ func (bs *BerkeleyServer) runBerkeleyAlgorithm() {
 		// Send adjustmnets to clients
 		for clientID, diff := range timeDiffs {
 			if clientID == 0 { // server
+				bs.serverTime = bs.serverTime.Add(mean)
+				fmt.Printf("Server adjusting its time with: %v\n", mean)
 				continue
 			}
 
-			adjustment := mean + 1/diff
+			adjustment := mean - diff
 			fmt.Printf("Sending time adjustment to client %d: %v\n", clientID, adjustment)
 
 			bs.mu.Unlock()
 			if err := bs.sendAdjustmentToClient(clientID, adjustment); err != nil {
-				fmt.Printf("Error sending adjustmen to client %d: %v\n", clientID, err)
+				fmt.Printf("Error sending adjustment to client %d: %v\n", clientID, err)
 			}
 			bs.mu.Lock()
 		}

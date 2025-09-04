@@ -41,7 +41,7 @@ type BerkeleyClient struct {
 	ID         int64
 	ServerAddr string
 	Port       string
-	TimeOffset time.Duration
+	ClientTime time.Time
 	isRunning  bool
 }
 
@@ -52,13 +52,13 @@ func NewBerkeleyClient(id int64, serverAddr, port string) *BerkeleyClient {
 		ID:         id,
 		ServerAddr: serverAddr,
 		Port:       port,
-		TimeOffset: offset,
+		ClientTime: time.Now().Add(offset),
 		isRunning:  true,
 	}
 }
 
 func (bc *BerkeleyClient) GetCurrentTime() time.Time {
-	return time.Now().Add(bc.TimeOffset)
+	return bc.ClientTime
 }
 
 func (bc *BerkeleyClient) Adjust(args *AdjustmentArgs, reply *AdjustmentReply) error {
@@ -67,8 +67,8 @@ func (bc *BerkeleyClient) Adjust(args *AdjustmentArgs, reply *AdjustmentReply) e
 	}
 
 	fmt.Printf("Received server adjustment: %v\n", args.Adjustment)
-	bc.TimeOffset += args.Adjustment
-	fmt.Printf("New offset: %v, Current Time: %v\n", bc.TimeOffset, bc.GetCurrentTime())
+	bc.ClientTime = bc.ClientTime.Add(args.Adjustment)
+	fmt.Printf("New Current Time: %v\n", bc.GetCurrentTime())
 
 	reply.Success = true
 	return nil
@@ -180,8 +180,8 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Client %d initialized with offset: %v\n", clientID, client.TimeOffset)
-	fmt.Printf("Starting time: %v\n", client.GetCurrentTime())
+	fmt.Printf("Client %d initialized with Time: %v\n", clientID, client.GetCurrentTime())
+	//fmt.Printf("Starting time: %v\n", client.GetCurrentTime())
 
 	client.startSyncLoop()
 
